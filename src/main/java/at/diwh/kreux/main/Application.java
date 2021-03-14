@@ -6,7 +6,6 @@ import java.awt.dnd.DnDConstants;
 import java.awt.dnd.DropTarget;
 import java.awt.dnd.DropTargetDropEvent;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -28,7 +27,6 @@ import javax.swing.WindowConstants;
 
 import org.apache.poi.EncryptedDocumentException;
 import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -127,7 +125,6 @@ public class Application {
     
     public static String executeTransformation(String xlsxFilename, Boolean split) throws IOException {
     	String xlsxCatsFilename = xlsxFilename+".CATS.xlsx";
-        DataFormatter dataFormatter = new DataFormatter();
         Workbook w = loadExcel(xlsxFilename);
         Sheet s = w.getSheet("Sheet");
         BRUTTOARBEITSZEITZELLE = scanneSheetAufbau(s);
