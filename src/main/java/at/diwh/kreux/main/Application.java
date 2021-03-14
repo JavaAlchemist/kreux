@@ -1,5 +1,10 @@
 package at.diwh.kreux.main;
 
+import java.awt.Font;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.dnd.DnDConstants;
+import java.awt.dnd.DropTarget;
+import java.awt.dnd.DropTargetDropEvent;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -11,6 +16,16 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import javax.swing.JCheckBox;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
+import javax.swing.UIManager;
+import javax.swing.UnsupportedLookAndFeelException;
+import javax.swing.WindowConstants;
+
 import org.apache.poi.EncryptedDocumentException;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.DataFormatter;
@@ -21,20 +36,96 @@ import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 public class Application {
     
+	public static  JTextField inFileName = new JTextField(200);
+	public static JTextArea ausgabeTextFeld = new JTextArea();
+	public static JCheckBox splitZeitenCheckBox = new JCheckBox();
+	
+	public static File inputFile = null;
+	
     public static int BRUTTOARBEITSZEITZELLE = 41;
     public static Map<String, String> wochentagsmerker = new HashMap<>();
     
     public static String HOMEDIR = System.getProperty("user.home");
 	public static String FILETRENNER = File.separator; // nicht (!) pathSeparator, denn der pathSeparator ist für Classpath-Abschnitte, also klassisch der Doppelpunkt
+	public static String xlsxFilename = null; // HOMEDIR + FILETRENNER + "Downloads" + FILETRENNER + "XtraReport.xlsx";
     
-    public static void main(String[] args) throws IOException {
-        String xlsxFilename = HOMEDIR + FILETRENNER + "Downloads" + FILETRENNER + "XtraReport.xlsx";
+    public static void main(String[] args) throws IOException, ClassNotFoundException, InstantiationException, IllegalAccessException, UnsupportedLookAndFeelException {
+        String lookAndFeelClassName = UIManager.getSystemLookAndFeelClassName();
+		UIManager.setLookAndFeel(lookAndFeelClassName);
+		
+		JFrame frame = new JFrame();
+		
+		frame.setTitle("KREUX");
+		
+		frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE); // Beende Programm bei Close des Fensters
+		frame.setSize(1000, 500);
+		frame.setLocationRelativeTo(null); // Mitte des Bildschirms
+		
+		JPanel meinPanel = new JPanel();
+		frame.add(meinPanel);
+		meinPanel.setLayout(null);
+		
+		// Input Filename
+		JLabel inFileNameLabel = new JLabel("Input File:");
+		inFileNameLabel.setBounds(10, 35, 100, 25);
+		meinPanel.add(inFileNameLabel);
+		
+		inFileName.setBounds(110, 35, 750, 100);
+		inFileName.setText("Datei hier herein ziehen.");
+		inFileName.setEditable(false);
+		inFileName.setDropTarget(new DropTarget() {
+			private static final long serialVersionUID = 1L;
+			@SuppressWarnings("unchecked")
+			public synchronized void drop(DropTargetDropEvent evt) {
+		        try {
+		            evt.acceptDrop(DnDConstants.ACTION_COPY);
+		            List<File> droppedFiles = (List<File>)
+		                evt.getTransferable().getTransferData(DataFlavor.javaFileListFlavor);
+		            for (File file : droppedFiles) {
+		                inputFile = file;
+		                inFileName.setText(inputFile.getPath());
+		                xlsxFilename = inputFile.getPath(); 
+		                say("File " + xlsxFilename + " wurde als Quelle gewählt.");
+		                String outReturn  = executeTransformation(xlsxFilename, splitZeitenCheckBox.isSelected());
+		                say("File " + outReturn + " wurde geschrieben.");
+		            }
+		        } catch (Exception ex) {
+		            ex.printStackTrace();
+		        }
+		    }
+		});
+		meinPanel.add(inFileName);
+		
+		// Check Box f Split
+		JLabel splitZeitenLabel = new JLabel("Teile die Zeit");
+		splitZeitenLabel.setBounds(10, 150, 100, 25);
+		meinPanel.add(splitZeitenLabel);
+		splitZeitenCheckBox.setBounds(110, 150, 25, 25);
+		meinPanel.add(splitZeitenCheckBox);
+		
+		// Ausgabetextfeld
+		ausgabeTextFeld.setLineWrap(true);
+		ausgabeTextFeld.setWrapStyleWord(true);
+		Font fontFuerText = new Font("Courier", Font.BOLD, 12);
+		ausgabeTextFeld.setFont(fontFuerText);
+		ausgabeTextFeld.setBounds(10, 220, 900, 200);
+		meinPanel.add(ausgabeTextFeld);
+		
+		frame.setVisible(true);
         
-        executeTransformation(xlsxFilename, true);
+        
   
     }
     
-    public static void executeTransformation(String xlsxFilename, Boolean split) throws IOException {
+    /**
+	 * Wie ein System.out.writeln (mit autom. newline). Nur halt in den Standard-Ausgabe-Bereich am Schirm.
+	 * @param wordsToSay : Worte, nichts als Worte
+	 */
+	private static void say(String wordsToSay) {
+		ausgabeTextFeld.append(wordsToSay + "\n");
+	}
+    
+    public static String executeTransformation(String xlsxFilename, Boolean split) throws IOException {
     	String xlsxCatsFilename = xlsxFilename+".CATS.xlsx";
         DataFormatter dataFormatter = new DataFormatter();
         Workbook w = loadExcel(xlsxFilename);
@@ -85,6 +176,7 @@ public class Application {
         outW.close();
         outputStream.close();
         System.out.println("Geschrieben: " + xlsxCatsFilename);
+        return xlsxCatsFilename;
     }
     
     public static String[] splitCellValue(String cv) {
