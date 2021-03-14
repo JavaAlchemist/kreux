@@ -1,6 +1,7 @@
 package at.diwh.kreux.main;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -23,10 +24,18 @@ public class Application {
     public static int BRUTTOARBEITSZEITZELLE = 41;
     public static Map<String, String> wochentagsmerker = new HashMap<>();
     
+    public static String HOMEDIR = System.getProperty("user.home");
+	public static String FILETRENNER = File.separator; // nicht (!) pathSeparator, denn der pathSeparator ist für Classpath-Abschnitte, also klassisch der Doppelpunkt
+    
     public static void main(String[] args) throws IOException {
-        String xlsxFilename = "c:/temp/XtraReport_HO.xlsx";
-        String xlsxCatsFilename = xlsxFilename+".CATS.xlsx";
+        String xlsxFilename = HOMEDIR + FILETRENNER + "Downloads" + FILETRENNER + "XtraReport.xlsx";
         
+        executeTransformation(xlsxFilename, true);
+  
+    }
+    
+    public static void executeTransformation(String xlsxFilename, Boolean split) throws IOException {
+    	String xlsxCatsFilename = xlsxFilename+".CATS.xlsx";
         DataFormatter dataFormatter = new DataFormatter();
         Workbook w = loadExcel(xlsxFilename);
         Sheet s = w.getSheet("Sheet");
@@ -42,7 +51,11 @@ public class Application {
         Workbook outW = new XSSFWorkbook();
         Sheet outS = outW.createSheet();
         Row outHeaderR = outS.createRow(0); // Header
-        Row outDataR = outS.createRow(1); // Data
+        Row outDataR1 = outS.createRow(1); // Data
+        Row outDataR2 = null;
+        if (split) {
+        	outDataR2 = outS.createRow(2);
+        }
         int i=0;
         
         for (Row element : datensaetze) {
@@ -53,9 +66,18 @@ public class Application {
             String cellElementHeader = fetchWochentagFromRow(element) + " " + fetchTagesdatumFromRow(element);
             String cellElementData = fetchCatsAzFromRow(element);
             Cell headerC = outHeaderR.createCell(i);
-            Cell dataC = outDataR.createCell(i);
-            headerC.setCellValue(cellElementHeader);
-            dataC.setCellValue(cellElementData);
+            Cell dataC1 = outDataR1.createCell(i);
+            Cell dataC2 = null;
+            if (split) {
+            	dataC2 = outDataR2.createCell(i);
+            }
+            headerC.setCellValue(cellElementHeader + "("+cellElementData+")");
+            dataC1.setCellValue(cellElementData);
+            if (split) {
+            	String[] splittedTimes = splitCellValue(cellElementData);
+            	dataC1.setCellValue(splittedTimes[0]);
+            	dataC2.setCellValue(splittedTimes[1]);
+            }
             i++;
         }
         FileOutputStream outputStream = new FileOutputStream(xlsxCatsFilename);
@@ -63,6 +85,48 @@ public class Application {
         outW.close();
         outputStream.close();
         System.out.println("Geschrieben: " + xlsxCatsFilename);
+    }
+    
+    public static String[] splitCellValue(String cv) {
+    	System.out.println("\t Übergebener String: " + cv);
+    	String[] ergebnis = new String[2];
+        String h = cv.substring(0, cv.indexOf(","));
+        String m = cv.substring(cv.indexOf(",")+1, cv.length());
+        System.out.println("h= " + h + " m= " + m);
+        
+        int minutenInTeilung15Min = (Integer.valueOf(m).intValue() / 25);
+        System.out.println("\tminutenInTeilung15Min: " + minutenInTeilung15Min);
+        
+        int stundenInTeilung15Min = (Integer.valueOf(h).intValue() * 4);
+        System.out.println("\tstundenInTeilung15Min " + stundenInTeilung15Min);
+        
+        int gesamtInTeilung15 = stundenInTeilung15Min+minutenInTeilung15Min;
+        System.out.println("\tgesamtInTeilung15: " + gesamtInTeilung15);
+        
+        int ganzeStunden = gesamtInTeilung15/4;
+        System.out.println("\tGanze Stunden " + ganzeStunden);
+        
+        int restNachGanzeStunden = gesamtInTeilung15 % 4;
+        System.out.println("\tRest in 15er Teilung: " + restNachGanzeStunden);
+        
+        double h1 = ganzeStunden/2.0;
+        double h2 = ganzeStunden/2.0;;
+        System.out.println("Geteilte ganze Stunden: " + h1 + " und " + h2);
+        
+        if (restNachGanzeStunden == 1) {
+        	h1 = h1 + 0.25;
+        } else if (restNachGanzeStunden == 2) {
+        	h1 = h1 + 0.25;
+        	h2 = h2 + 0.25;
+        } else if (restNachGanzeStunden == 3) {
+        	h1 = h1 + 0.50;
+        	h2 = h2 + 0.25;
+        }
+        
+        ergebnis[0] = String.valueOf(h1).replace('.', ',');
+        ergebnis[1] = String.valueOf(h2).replace('.', ',');
+        
+    	return ergebnis;
     }
     
     public static void fillWochentagsmerker(Sheet s) {
